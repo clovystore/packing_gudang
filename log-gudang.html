@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log Gudang</title>
+<style>
+  :root{
+    --bg:#0b141a; --panel:#111b21; --panel2:#202c33; --line:#2a3942;
+    --text:#e9edef; --sub:#8696a0; --accent:#00a884; --accent-dark:#005c4b;
+    --bubble-in:#202c33; --bubble-out:#005c4b; --danger:#e04b4b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text); height:100vh; overflow:hidden;
+  }
+  #app{display:flex; height:100vh;}
+
+  /* Sidebar */
+  #sidebar{width:280px; min-width:280px; background:var(--panel); border-right:1px solid var(--line); display:flex; flex-direction:column;}
+  #sidebar-header{padding:14px 16px; font-size:18px; font-weight:600; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between;}
+  #cat-list{flex:1; overflow-y:auto;}
+  .cat-item{padding:14px 16px; border-bottom:1px solid var(--line); cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:background .1s;}
+  .cat-item:hover{background:var(--panel2);}
+  .cat-item.active{background:var(--panel2);}
+  .cat-name{font-size:15px;}
+  .cat-count{font-size:12px; color:var(--bg); background:var(--accent); border-radius:12px; padding:2px 8px; min-width:20px; text-align:center;}
+  #add-cat{padding:12px 16px; border-top:1px solid var(--line); display:flex; gap:8px;}
+  #add-cat input{flex:1; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; color:var(--text); font-size:13px;}
+  #add-cat button{background:var(--accent); border:none; border-radius:8px; padding:8px 12px; color:#052014; font-weight:600; cursor:pointer; font-size:13px;}
+
+  /* Main */
+  #main{flex:1; display:flex; flex-direction:column; background:#0a1014;}
+  #main-header{padding:14px 20px; background:var(--panel); border-bottom:1px solid var(--line); font-size:16px; font-weight:600;}
+  #feed{flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:14px;}
+  .empty-state{margin:auto; color:var(--sub); text-align:center; font-size:14px;}
+
+  .entry{max-width:70%; background:var(--bubble-in); border-radius:10px; padding:8px 10px 6px; align-self:flex-start;}
+  .entry .who{font-size:13px; font-weight:600; color:#7fd4c4; margin-bottom:4px;}
+  .entry img{max-width:100%; border-radius:8px; display:block; margin-bottom:6px; cursor:pointer;}
+  .entry .note{font-size:14px; line-height:1.4; white-space:pre-wrap;}
+  .entry .meta{font-size:11px; color:var(--sub); text-align:right; margin-top:4px;}
+  .entry .delbtn{font-size:11px; color:var(--danger); cursor:pointer; margin-left:8px;}
+
+  /* Composer */
+  #composer{background:var(--panel); border-top:1px solid var(--line); padding:10px 16px; display:flex; flex-direction:column; gap:8px;}
+  #name-row{display:flex; gap:8px; align-items:center;}
+  #name-row input{background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; color:var(--text); font-size:13px; width:180px;}
+  #name-row span{font-size:12px; color:var(--sub);}
+  #photo-preview{display:flex; gap:8px; flex-wrap:wrap;}
+  #photo-preview .ph{position:relative; width:64px; height:64px;}
+  #photo-preview img{width:64px; height:64px; object-fit:cover; border-radius:6px;}
+  #photo-preview .rm{position:absolute; top:-6px; right:-6px; background:var(--danger); color:#fff; border-radius:50%; width:18px; height:18px; font-size:12px; display:flex; align-items:center; justify-content:center; cursor:pointer;}
+  #input-row{display:flex; gap:8px; align-items:flex-end;}
+  #note-input{flex:1; background:var(--panel2); border:1px solid var(--line); border-radius:20px; padding:10px 16px; color:var(--text); font-size:14px; resize:none; max-height:100px; min-height:20px;}
+  .icon-btn{background:var(--panel2); border:1px solid var(--line); border-radius:50%; width:42px; height:42px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; font-size:18px;}
+  #send-btn{background:var(--accent); color:#052014;}
+  #file-input{display:none;}
+  #status{font-size:11px; color:var(--sub); text-align:center; height:14px;}
+
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <span>Log Gudang</span>
+    </div>
+    <div id="cat-list"></div>
+    <div id="add-cat">
+      <input id="new-cat-input" placeholder="Kategori baru..." maxlength="30"/>
+      <button id="new-cat-btn">Tambah</button>
+    </div>
+  </div>
+  <div id="main">
+    <div id="main-header" id="main-title">Pilih kategori</div>
+    <div id="feed"><div class="empty-state">Memuat...</div></div>
+    <div id="composer">
+      <div id="name-row">
+        <span>Nama:</span>
+        <input id="name-input" placeholder="Nama kamu" maxlength="40"/>
+      </div>
+      <div id="photo-preview"></div>
+      <div id="input-row">
+        <div class="icon-btn" id="camera-btn" title="Lampirkan foto">📷</div>
+        <input type="file" id="file-input" accept="image/*" multiple>
+        <textarea id="note-input" placeholder="Tulis catatan (qty, kondisi, dll)..." rows="1"></textarea>
+        <div class="icon-btn" id="send-btn" title="Kirim">➤</div>
+      </div>
+      <div id="status"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DEFAULT_CATEGORIES = ["Packing","ATK","Stock","Retur & Refund","SPX"];
+let categories = [];
+let activeCategory = null;
+let pendingPhotos = []; // array of dataURLs for current composer
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+
+async function safeGet(key, shared){
+  try{
+    const r = await window.storage.get(key, shared);
+    return r ? r.value : null;
+  }catch(e){ return null; }
+}
+async function safeSet(key, value, shared){
+  try{ return await window.storage.set(key, value, shared); }
+  catch(e){ console.error("storage set failed", e); return null; }
+}
+
+async function loadCategories(){
+  let raw = await safeGet('categories', true);
+  if(raw){
+    try{ categories = JSON.parse(raw); }catch(e){ categories = DEFAULT_CATEGORIES.slice(); }
+  } else {
+    categories = DEFAULT_CATEGORIES.slice();
+    await safeSet('categories', JSON.stringify(categories), true);
+  }
+}
+
+async function getIndex(cat){
+  const raw = await safeGet('index:'+cat, true);
+  if(!raw) return [];
+  try{ return JSON.parse(raw); }catch(e){ return []; }
+}
+
+async function renderSidebar(){
+  const list = document.getElementById('cat-list');
+  list.innerHTML = '';
+  for(const cat of categories){
+    const idx = await getIndex(cat);
+    const div = document.createElement('div');
+    div.className = 'cat-item' + (cat===activeCategory ? ' active':'');
+    div.innerHTML = `<span class="cat-name">${escapeHtml(cat)}</span><span class="cat-count">${idx.length}</span>`;
+    div.onclick = ()=> selectCategory(cat);
+    list.appendChild(div);
+  }
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+}
+
+async function selectCategory(cat){
+  activeCategory = cat;
+  document.getElementById('main-title').textContent = cat;
+  await renderSidebar();
+  await renderFeed();
+}
+
+async function renderFeed(){
+  const feed = document.getElementById('feed');
+  feed.innerHTML = '';
+  if(!activeCategory){
+    feed.innerHTML = '<div class="empty-state">Pilih kategori di kiri untuk mulai</div>';
+    return;
+  }
+  const ids = await getIndex(activeCategory);
+  if(ids.length===0){
+    feed.innerHTML = '<div class="empty-state">Belum ada entri. Tambahkan foto/catatan pertama di bawah.</div>';
+    return;
+  }
+  status('Memuat entri...');
+  for(const id of ids){
+    const raw = await safeGet('entry:'+id, true);
+    if(!raw) continue;
+    let e;
+    try{ e = JSON.parse(raw); }catch(err){ continue; }
+    const div = document.createElement('div');
+    div.className = 'entry';
+    let photosHtml = '';
+    if(e.photos && e.photos.length){
+      photosHtml = e.photos.map(p=>`<img src="${p}" onclick="window.open(this.src)"/>`).join('');
+    }
+    div.innerHTML = `
+      <div class="who">${escapeHtml(e.name||'Tanpa nama')}</div>
+      ${photosHtml}
+      ${e.note ? `<div class="note">${escapeHtml(e.note)}</div>` : ''}
+      <div class="meta">${new Date(e.timestamp).toLocaleString('id-ID')} <span class="delbtn" data-id="${e.id}">Hapus</span></div>
+    `;
+    feed.appendChild(div);
+  }
+  feed.querySelectorAll('.delbtn').forEach(btn=>{
+    btn.onclick = ()=> deleteEntry(btn.dataset.id);
+  });
+  status('');
+  feed.scrollTop = feed.scrollHeight;
+}
+
+async function deleteEntry(id){
+  if(!confirm('Hapus entri ini?')) return;
+  const ids = await getIndex(activeCategory);
+  const newIds = ids.filter(x=>x!==id);
+  await safeSet('index:'+activeCategory, JSON.stringify(newIds), true);
+  try{ await window.storage.delete('entry:'+id, true); }catch(e){}
+  await renderFeed();
+  await renderSidebar();
+}
+
+function status(msg){
+  document.getElementById('status').textContent = msg;
+}
+
+function resizeImage(file, maxDim=900, quality=0.7){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w>h && w>maxDim){ h = h*maxDim/w; w = maxDim; }
+        else if(h>maxDim){ w = w*maxDim/h; h = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderPhotoPreview(){
+  const box = document.getElementById('photo-preview');
+  box.innerHTML = '';
+  pendingPhotos.forEach((p, idx)=>{
+    const div = document.createElement('div');
+    div.className = 'ph';
+    div.innerHTML = `<img src="${p}"/><div class="rm" data-idx="${idx}">×</div>`;
+    box.appendChild(div);
+  });
+  box.querySelectorAll('.rm').forEach(rm=>{
+    rm.onclick = ()=>{
+      pendingPhotos.splice(parseInt(rm.dataset.idx),1);
+      renderPhotoPreview();
+    };
+  });
+}
+
+document.getElementById('camera-btn').onclick = ()=> document.getElementById('file-input').click();
+
+document.getElementById('file-input').onchange = async (e)=>{
+  const files = Array.from(e.target.files);
+  status('Memproses foto...');
+  for(const f of files){
+    try{
+      const dataUrl = await resizeImage(f);
+      pendingPhotos.push(dataUrl);
+    }catch(err){ console.error(err); }
+  }
+  renderPhotoPreview();
+  status('');
+  e.target.value = '';
+};
+
+document.getElementById('new-cat-btn').onclick = async ()=>{
+  const input = document.getElementById('new-cat-input');
+  const name = input.value.trim();
+  if(!name) return;
+  if(categories.includes(name)){ input.value=''; return; }
+  categories.push(name);
+  await safeSet('categories', JSON.stringify(categories), true);
+  input.value = '';
+  await renderSidebar();
+  selectCategory(name);
+};
+document.getElementById('new-cat-input').addEventListener('keydown', (e)=>{
+  if(e.key==='Enter') document.getElementById('new-cat-btn').click();
+});
+
+document.getElementById('note-input').addEventListener('input', function(){
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight,100)+'px';
+});
+document.getElementById('note-input').addEventListener('keydown', (e)=>{
+  if(e.key==='Enter' && !e.shiftKey){
+    e.preventDefault();
+    document.getElementById('send-btn').click();
+  }
+});
+
+document.getElementById('send-btn').onclick = async ()=>{
+  if(!activeCategory){ status('Pilih kategori dulu.'); return; }
+  const name = document.getElementById('name-input').value.trim();
+  const note = document.getElementById('note-input').value.trim();
+  if(!name){ status('Isi nama kamu dulu.'); return; }
+  if(!note && pendingPhotos.length===0){ status('Tulis catatan atau lampirkan foto.'); return; }
+
+  await safeSet('username', name, false);
+
+  const entry = {
+    id: uid(),
+    name, note,
+    photos: pendingPhotos.slice(),
+    timestamp: Date.now()
+  };
+  status('Mengirim...');
+  await safeSet('entry:'+entry.id, JSON.stringify(entry), true);
+  const ids = await getIndex(activeCategory);
+  ids.push(entry.id);
+  await safeSet('index:'+activeCategory, JSON.stringify(ids), true);
+
+  document.getElementById('note-input').value = '';
+  document.getElementById('note-input').style.height = 'auto';
+  pendingPhotos = [];
+  renderPhotoPreview();
+  await renderFeed();
+  await renderSidebar();
+  status('');
+};
+
+(async function init(){
+  await loadCategories();
+  const savedName = await safeGet('username', false);
+  if(savedName) document.getElementById('name-input').value = savedName;
+  await renderSidebar();
+  if(categories.length) await selectCategory(categories[0]);
+  else document.getElementById('feed').innerHTML = '<div class="empty-state">Tambahkan kategori pertama di kiri bawah</div>';
+})();
+</script>
+</body>
+</html>
