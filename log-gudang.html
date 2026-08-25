@@ -8,7 +8,7 @@
   :root{
     --bg:#0b141a; --panel:#111b21; --panel2:#202c33; --line:#2a3942;
     --text:#e9edef; --sub:#8696a0; --accent:#00a884; --accent-dark:#005c4b;
-    --bubble-in:#202c33; --bubble-out:#005c4b; --danger:#e04b4b;
+    --bubble-in:#202c33; --danger:#e04b4b;
   }
   *{box-sizing:border-box;}
   body{
@@ -17,11 +17,12 @@
   }
   #app{display:flex; height:100vh;}
 
-  /* Sidebar */
   #sidebar{width:280px; min-width:280px; background:var(--panel); border-right:1px solid var(--line); display:flex; flex-direction:column;}
   #sidebar-header{padding:14px 16px; font-size:18px; font-weight:600; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between;}
+  #conn-dot{width:8px; height:8px; border-radius:50%; background:var(--danger); display:inline-block;}
+  #conn-dot.ok{background:var(--accent);}
   #cat-list{flex:1; overflow-y:auto;}
-  .cat-item{padding:14px 16px; border-bottom:1px solid var(--line); cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:background .1s;}
+  .cat-item{padding:14px 16px; border-bottom:1px solid var(--line); cursor:pointer; display:flex; justify-content:space-between; align-items:center;}
   .cat-item:hover{background:var(--panel2);}
   .cat-item.active{background:var(--panel2);}
   .cat-name{font-size:15px;}
@@ -30,11 +31,10 @@
   #add-cat input{flex:1; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; color:var(--text); font-size:13px;}
   #add-cat button{background:var(--accent); border:none; border-radius:8px; padding:8px 12px; color:#052014; font-weight:600; cursor:pointer; font-size:13px;}
 
-  /* Main */
   #main{flex:1; display:flex; flex-direction:column; background:#0a1014;}
   #main-header{padding:14px 20px; background:var(--panel); border-bottom:1px solid var(--line); font-size:16px; font-weight:600;}
   #feed{flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:14px;}
-  .empty-state{margin:auto; color:var(--sub); text-align:center; font-size:14px;}
+  .empty-state{margin:auto; color:var(--sub); text-align:center; font-size:14px; max-width:320px;}
 
   .entry{max-width:70%; background:var(--bubble-in); border-radius:10px; padding:8px 10px 6px; align-self:flex-start;}
   .entry .who{font-size:13px; font-weight:600; color:#7fd4c4; margin-bottom:4px;}
@@ -43,7 +43,6 @@
   .entry .meta{font-size:11px; color:var(--sub); text-align:right; margin-top:4px;}
   .entry .delbtn{font-size:11px; color:var(--danger); cursor:pointer; margin-left:8px;}
 
-  /* Composer */
   #composer{background:var(--panel); border-top:1px solid var(--line); padding:10px 16px; display:flex; flex-direction:column; gap:8px;}
   #name-row{display:flex; gap:8px; align-items:center;}
   #name-row input{background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; color:var(--text); font-size:13px; width:180px;}
@@ -57,7 +56,7 @@
   .icon-btn{background:var(--panel2); border:1px solid var(--line); border-radius:50%; width:42px; height:42px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; font-size:18px;}
   #send-btn{background:var(--accent); color:#052014;}
   #file-input{display:none;}
-  #status{font-size:11px; color:var(--sub); text-align:center; height:14px;}
+  #status{font-size:11px; color:var(--sub); text-align:center; min-height:14px;}
 
   ::-webkit-scrollbar{width:8px;}
   ::-webkit-scrollbar-thumb{background:var(--line); border-radius:4px;}
@@ -68,6 +67,7 @@
   <div id="sidebar">
     <div id="sidebar-header">
       <span>Log Gudang</span>
+      <span id="conn-dot" title="Status koneksi"></span>
     </div>
     <div id="cat-list"></div>
     <div id="add-cat">
@@ -77,7 +77,7 @@
   </div>
   <div id="main">
     <div id="main-header" id="main-title">Pilih kategori</div>
-    <div id="feed"><div class="empty-state">Memuat...</div></div>
+    <div id="feed"><div class="empty-state">Menghubungkan ke database...</div></div>
     <div id="composer">
       <div id="name-row">
         <span>Nama:</span>
@@ -95,83 +95,127 @@
   </div>
 </div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, doc, setDoc, deleteDoc,
+  onSnapshot, query, orderBy
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// =====================================================================
+// GANTI OBJEK DI BAWAH INI dengan firebaseConfig dari Firebase Console
+// (Project settings > General > scroll ke "Your apps" > SDK setup)
+// =====================================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyCCXvCR25dQiTDTNMW8mJBWR5f3gSc14Fg",
+  authDomain: "clovy-log-packing-gudang.firebaseapp.com",
+  projectId: "clovy-log-packing-gudang",
+  storageBucket: "clovy-log-packing-gudang.firebasestorage.app",
+  messagingSenderId: "772473495759",
+  appId: "1:772473495759:web:c2f7e8152cb32c04a7d7ba"
+};
+// =====================================================================
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
 const DEFAULT_CATEGORIES = ["Packing","ATK","Stock","Retur & Refund","SPX"];
 let categories = [];
 let activeCategory = null;
-let pendingPhotos = []; // array of dataURLs for current composer
+let pendingPhotos = [];
+let entriesCache = {}; // category -> array of entries (sorted)
 
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function status(msg){ document.getElementById('status').textContent = msg; }
 
-async function safeGet(key, shared){
-  try{
-    const r = await window.storage.get(key, shared);
-    return r ? r.value : null;
-  }catch(e){ return null; }
-}
-async function safeSet(key, value, shared){
-  try{ return await window.storage.set(key, value, shared); }
-  catch(e){ console.error("storage set failed", e); return null; }
+function setConnected(ok){
+  document.getElementById('conn-dot').className = ok ? 'ok' : '';
 }
 
-async function loadCategories(){
-  let raw = await safeGet('categories', true);
-  if(raw){
-    try{ categories = JSON.parse(raw); }catch(e){ categories = DEFAULT_CATEGORIES.slice(); }
-  } else {
-    categories = DEFAULT_CATEGORIES.slice();
-    await safeSet('categories', JSON.stringify(categories), true);
-  }
+// ---------- Categories ----------
+async function ensureCategoriesDoc(){
+  const ref = doc(db, 'meta', 'categories');
+  onSnapshot(ref, (snap)=>{
+    setConnected(true);
+    if(snap.exists() && snap.data().list && snap.data().list.length){
+      categories = snap.data().list;
+    } else {
+      categories = DEFAULT_CATEGORIES.slice();
+      setDoc(ref, { list: categories }).catch(()=>{});
+    }
+    renderSidebar();
+    if(!activeCategory && categories.length) selectCategory(categories[0]);
+  }, (err)=>{
+    console.error(err);
+    setConnected(false);
+    status('Gagal terhubung ke database. Cek konfigurasi Firebase.');
+  });
 }
 
-async function getIndex(cat){
-  const raw = await safeGet('index:'+cat, true);
-  if(!raw) return [];
-  try{ return JSON.parse(raw); }catch(e){ return []; }
+async function addCategory(name){
+  if(categories.includes(name)) return;
+  categories.push(name);
+  await setDoc(doc(db,'meta','categories'), { list: categories });
 }
 
-async function renderSidebar(){
+// ---------- Entries ----------
+function listenCategory(cat){
+  const q = query(collection(db, 'entries', cat, 'items'), orderBy('timestamp','asc'));
+  onSnapshot(q, (snap)=>{
+    const arr = [];
+    snap.forEach(d=> arr.push(d.data()));
+    entriesCache[cat] = arr;
+    if(activeCategory === cat) renderFeed();
+    renderSidebar();
+  }, (err)=>{
+    console.error(err);
+  });
+}
+
+const listenedCategories = new Set();
+function ensureListening(cat){
+  if(listenedCategories.has(cat)) return;
+  listenedCategories.add(cat);
+  listenCategory(cat);
+}
+
+// ---------- Rendering ----------
+function renderSidebar(){
   const list = document.getElementById('cat-list');
   list.innerHTML = '';
   for(const cat of categories){
-    const idx = await getIndex(cat);
+    ensureListening(cat);
+    const count = (entriesCache[cat]||[]).length;
     const div = document.createElement('div');
     div.className = 'cat-item' + (cat===activeCategory ? ' active':'');
-    div.innerHTML = `<span class="cat-name">${escapeHtml(cat)}</span><span class="cat-count">${idx.length}</span>`;
+    div.innerHTML = `<span class="cat-name">${escapeHtml(cat)}</span><span class="cat-count">${count}</span>`;
     div.onclick = ()=> selectCategory(cat);
     list.appendChild(div);
   }
 }
 
-function escapeHtml(s){
-  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
-}
-
-async function selectCategory(cat){
+function selectCategory(cat){
   activeCategory = cat;
   document.getElementById('main-title').textContent = cat;
-  await renderSidebar();
-  await renderFeed();
+  ensureListening(cat);
+  renderSidebar();
+  renderFeed();
 }
 
-async function renderFeed(){
+function renderFeed(){
   const feed = document.getElementById('feed');
   feed.innerHTML = '';
   if(!activeCategory){
     feed.innerHTML = '<div class="empty-state">Pilih kategori di kiri untuk mulai</div>';
     return;
   }
-  const ids = await getIndex(activeCategory);
-  if(ids.length===0){
+  const entries = entriesCache[activeCategory] || [];
+  if(entries.length===0){
     feed.innerHTML = '<div class="empty-state">Belum ada entri. Tambahkan foto/catatan pertama di bawah.</div>';
     return;
   }
-  status('Memuat entri...');
-  for(const id of ids){
-    const raw = await safeGet('entry:'+id, true);
-    if(!raw) continue;
-    let e;
-    try{ e = JSON.parse(raw); }catch(err){ continue; }
+  for(const e of entries){
     const div = document.createElement('div');
     div.className = 'entry';
     let photosHtml = '';
@@ -189,25 +233,18 @@ async function renderFeed(){
   feed.querySelectorAll('.delbtn').forEach(btn=>{
     btn.onclick = ()=> deleteEntry(btn.dataset.id);
   });
-  status('');
   feed.scrollTop = feed.scrollHeight;
 }
 
 async function deleteEntry(id){
   if(!confirm('Hapus entri ini?')) return;
-  const ids = await getIndex(activeCategory);
-  const newIds = ids.filter(x=>x!==id);
-  await safeSet('index:'+activeCategory, JSON.stringify(newIds), true);
-  try{ await window.storage.delete('entry:'+id, true); }catch(e){}
-  await renderFeed();
-  await renderSidebar();
+  try{
+    await deleteDoc(doc(db, 'entries', activeCategory, 'items', id));
+  }catch(e){ console.error(e); status('Gagal menghapus.'); }
 }
 
-function status(msg){
-  document.getElementById('status').textContent = msg;
-}
-
-function resizeImage(file, maxDim=900, quality=0.7){
+// ---------- Photo handling ----------
+function resizeImage(file, maxDim=700, quality=0.55){
   return new Promise((resolve,reject)=>{
     const reader = new FileReader();
     reader.onload = (e)=>{
@@ -246,10 +283,12 @@ function renderPhotoPreview(){
   });
 }
 
+// ---------- Events ----------
 document.getElementById('camera-btn').onclick = ()=> document.getElementById('file-input').click();
 
 document.getElementById('file-input').onchange = async (e)=>{
-  const files = Array.from(e.target.files);
+  const files = Array.from(e.target.files).slice(0, 3 - pendingPhotos.length);
+  if(files.length===0){ status('Maksimal 3 foto per kiriman.'); return; }
   status('Memproses foto...');
   for(const f of files){
     try{
@@ -266,11 +305,8 @@ document.getElementById('new-cat-btn').onclick = async ()=>{
   const input = document.getElementById('new-cat-input');
   const name = input.value.trim();
   if(!name) return;
-  if(categories.includes(name)){ input.value=''; return; }
-  categories.push(name);
-  await safeSet('categories', JSON.stringify(categories), true);
+  await addCategory(name);
   input.value = '';
-  await renderSidebar();
   selectCategory(name);
 };
 document.getElementById('new-cat-input').addEventListener('keydown', (e)=>{
@@ -295,37 +331,28 @@ document.getElementById('send-btn').onclick = async ()=>{
   if(!name){ status('Isi nama kamu dulu.'); return; }
   if(!note && pendingPhotos.length===0){ status('Tulis catatan atau lampirkan foto.'); return; }
 
-  await safeSet('username', name, false);
+  localStorage.setItem('log-gudang-username', name);
 
-  const entry = {
-    id: uid(),
-    name, note,
-    photos: pendingPhotos.slice(),
-    timestamp: Date.now()
-  };
+  const id = uid();
+  const entry = { id, name, note, photos: pendingPhotos.slice(), timestamp: Date.now() };
   status('Mengirim...');
-  await safeSet('entry:'+entry.id, JSON.stringify(entry), true);
-  const ids = await getIndex(activeCategory);
-  ids.push(entry.id);
-  await safeSet('index:'+activeCategory, JSON.stringify(ids), true);
-
-  document.getElementById('note-input').value = '';
-  document.getElementById('note-input').style.height = 'auto';
-  pendingPhotos = [];
-  renderPhotoPreview();
-  await renderFeed();
-  await renderSidebar();
-  status('');
+  try{
+    await setDoc(doc(db, 'entries', activeCategory, 'items', id), entry);
+    document.getElementById('note-input').value = '';
+    document.getElementById('note-input').style.height = 'auto';
+    pendingPhotos = [];
+    renderPhotoPreview();
+    status('');
+  }catch(err){
+    console.error(err);
+    status('Gagal mengirim. Foto mungkin terlalu besar, coba kurangi jumlah foto.');
+  }
 };
 
-(async function init(){
-  await loadCategories();
-  const savedName = await safeGet('username', false);
-  if(savedName) document.getElementById('name-input').value = savedName;
-  await renderSidebar();
-  if(categories.length) await selectCategory(categories[0]);
-  else document.getElementById('feed').innerHTML = '<div class="empty-state">Tambahkan kategori pertama di kiri bawah</div>';
-})();
+// ---------- Init ----------
+const savedName = localStorage.getItem('log-gudang-username');
+if(savedName) document.getElementById('name-input').value = savedName;
+ensureCategoriesDoc();
 </script>
 </body>
 </html>
