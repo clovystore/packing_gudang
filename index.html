@@ -44,8 +44,12 @@
   .entry .photos{display:flex; flex-wrap:wrap; gap:4px; margin-bottom:4px;}
   .entry img{width:128px; height:128px; object-fit:cover; border-radius:6px; cursor:zoom-in; flex-shrink:0;}
   .entry .note{font-size:12px; line-height:1.3; white-space:pre-wrap;}
-  .entry .meta{font-size:10px; color:var(--sub); margin-top:3px; display:flex; justify-content:space-between; gap:6px;}
+  .entry .meta{font-size:10px; color:var(--sub); margin-top:3px; display:flex; justify-content:space-between; gap:6px; align-items:center;}
+  .entry .btns{display:flex; gap:8px; align-items:center; flex-shrink:0;}
   .entry .delbtn{font-size:10px; color:var(--danger); cursor:pointer; flex-shrink:0;}
+  .entry .qcbtn{font-size:13px; cursor:pointer; opacity:0.3; filter:grayscale(1);}
+  .entry .qcbtn.checked{opacity:1; filter:none;}
+  .entry.qc-done{outline:2px solid var(--accent);}
 
   #composer{background:var(--panel); border-top:1px solid var(--line); padding:10px 16px; display:flex; flex-direction:column; gap:8px;}
   #name-row{display:flex; gap:8px; align-items:center;}
@@ -125,7 +129,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getFirestore, collection, doc, setDoc, deleteDoc,
+  getFirestore, collection, doc, setDoc, updateDoc, deleteDoc,
   onSnapshot, query, orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -281,7 +285,7 @@ function renderFeed(){
   }
   for(const e of entries){
     const div = document.createElement('div');
-    div.className = 'entry';
+    div.className = 'entry' + (e.checked ? ' qc-done' : '');
     let photosHtml = '';
     if(e.photos && e.photos.length){
       photosHtml = `<div class="photos">${e.photos.map(p=>`<img src="${p}" onclick="openLightbox('${p}')"/>`).join('')}</div>`;
@@ -290,14 +294,23 @@ function renderFeed(){
       <div class="who">${escapeHtml(e.name||'Tanpa nama')}</div>
       ${photosHtml}
       ${e.note ? `<div class="note">${escapeHtml(e.note)}</div>` : ''}
-      <div class="meta"><span>${new Date(e.timestamp).toLocaleString('id-ID',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span><span class="delbtn" data-id="${e.id}">Hapus</span></div>
+      <div class="meta"><span>${new Date(e.timestamp).toLocaleString('id-ID',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span><span class="btns"><span class="qcbtn ${e.checked?'checked':''}" data-id="${e.id}" title="Tandai sudah dicek QC">✅</span><span class="delbtn" data-id="${e.id}">Hapus</span></span></div>
     `;
     feed.appendChild(div);
   }
   feed.querySelectorAll('.delbtn').forEach(btn=>{
     btn.onclick = ()=> deleteEntry(btn.dataset.id);
   });
+  feed.querySelectorAll('.qcbtn').forEach(btn=>{
+    btn.onclick = ()=> toggleQC(btn.dataset.id, !btn.classList.contains('checked'));
+  });
   feed.scrollTop = feed.scrollHeight;
+}
+
+async function toggleQC(id, checked){
+  try{
+    await updateDoc(doc(db, 'entries', activeCategory, 'items', id), { checked });
+  }catch(e){ console.error(e); status('Gagal update status QC.'); }
 }
 
 async function deleteEntry(id){
