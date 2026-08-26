@@ -27,7 +27,8 @@
   .cat-item.active{background:var(--panel2);}
   .cat-name{font-size:15px;}
   .cat-count{font-size:12px; color:var(--bg); background:var(--accent); border-radius:12px; padding:2px 8px; min-width:20px; text-align:center;}
-  #add-cat-btn{flex-shrink:0; width:40px; height:40px; margin:6px 10px; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:20px; cursor:pointer;}
+  #add-cat-btn{flex-shrink:0; width:40px; height:40px; margin:6px 4px 6px 10px; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:20px; cursor:pointer;}
+  #cleanup-btn{flex-shrink:0; width:40px; height:40px; margin:6px 10px 6px 0; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:16px; cursor:pointer;}
 
   #range-bar{display:flex; gap:6px; padding:8px 16px; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; overflow-x:auto; position:sticky; top:49px; z-index:19;}
   .range-btn{flex-shrink:0; padding:6px 14px; border-radius:16px; border:1px solid var(--line); background:var(--panel2); color:var(--sub); font-size:13px; cursor:pointer;}
@@ -90,6 +91,7 @@
     </div>
     <div id="cat-list"></div>
     <button id="add-cat-btn" title="Tambah kategori">+</button>
+    <button id="cleanup-btn" title="Hapus data lama">🧹</button>
   </div>
   <div id="main">
     <div id="main-header" id="main-title">Pilih kategori</div>
@@ -156,6 +158,9 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
+// GANTI dengan API key gratis dari api.imgbb.com
+const IMGBB_API_KEY = "ed8c68d03511396fdb1c8cd135a2a470";
 
 const DEFAULT_CATEGORIES = ["Packing","ATK","Stock","Retur & Refund","SPX"];
 let categories = [];
@@ -327,8 +332,30 @@ async function deleteEntry(id){
   }catch(e){ console.error(e); status('Gagal menghapus.'); }
 }
 
+async function uploadToImgbb(dataUrl){
+  const base64 = dataUrl.split(',')[1];
+  const formData = new FormData();
+  formData.append('image', base64);
+  const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+    method: 'POST',
+    body: formData
+  });
+  const json = await res.json();
+  if(!json.success) throw new Error('Upload ke ImgBB gagal');
+  return json.data.url;
+}
+
+async function uploadPhotos(dataUrls){
+  const urls = [];
+  for(const d of dataUrls){
+    const url = await uploadToImgbb(d);
+    urls.push(url);
+  }
+  return urls;
+}
+
 // ---------- Photo handling ----------
-function resizeImage(file, maxDim=1200, quality=0.7){
+function resizeImage(file, maxDim=1900, quality=0.85){
   return new Promise((resolve,reject)=>{
     const reader = new FileReader();
     reader.onload = (e)=>{
@@ -402,6 +429,22 @@ document.getElementById('add-cat-btn').onclick = async ()=>{
   selectCategory(name);
 };
 
+document.getElementById('cleanup-btn').onclick = async ()=>{
+  if(!activeCategory){ status('Pilih kategori dulu.'); return; }
+  const CUTOFF_DAYS = 45;
+  const cutoff = Date.now() - CUTOFF_DAYS*24*60*60*1000;
+  const all = entriesCache[activeCategory] || [];
+  const old = all.filter(e => e.timestamp < cutoff);
+  if(old.length===0){ alert(`Tidak ada entri di kategori "${activeCategory}" yang lebih lama dari ${CUTOFF_DAYS} hari.`); return; }
+  if(!confirm(`Hapus ${old.length} entri di kategori "${activeCategory}" yang lebih lama dari ${CUTOFF_DAYS} hari? Tindakan ini tidak bisa dibatalkan.`)) return;
+  status(`Menghapus ${old.length} entri lama...`);
+  for(const e of old){
+    try{ await deleteDoc(doc(db, 'entries', activeCategory, 'items', e.id)); }catch(err){ console.error(err); }
+  }
+  status('');
+  alert('Selesai membersihkan data lama.');
+};
+
 document.getElementById('note-input').addEventListener('input', function(){
   this.style.height = 'auto';
   this.style.height = Math.min(this.scrollHeight,100)+'px';
@@ -423,7 +466,18 @@ document.getElementById('send-btn').onclick = async ()=>{
   localStorage.setItem('log-gudang-username', name);
 
   const id = uid();
-  const entry = { id, name, note, photos: pendingPhotos.slice(), timestamp: Date.now() };
+  let photoUrls = [];
+  if(pendingPhotos.length){
+    status('Mengupload foto...');
+    try{
+      photoUrls = await uploadPhotos(pendingPhotos);
+    }catch(err){
+      console.error(err);
+      status('Gagal upload foto. Cek koneksi internet atau API key ImgBB, lalu coba lagi.');
+      return;
+    }
+  }
+  const entry = { id, name, note, photos: photoUrls, timestamp: Date.now() };
   status('Mengirim...');
   try{
     await setDoc(doc(db, 'entries', activeCategory, 'items', id), entry);
@@ -434,7 +488,7 @@ document.getElementById('send-btn').onclick = async ()=>{
     status('');
   }catch(err){
     console.error(err);
-    status('Gagal mengirim, foto terlalu besar. Coba kurangi jumlah foto per kiriman.');
+    status('Gagal menyimpan entri. Coba lagi.');
   }
 };
 
