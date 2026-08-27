@@ -159,8 +159,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// GANTI dengan API key gratis dari api.imgbb.com
-const IMGBB_API_KEY = "ed8c68d03511396fdb1c8cd135a2a470";
+// GANTI dengan Cloud Name dan Upload Preset dari akun Cloudinary kamu
+const CLOUDINARY_CLOUD_NAME = "zocxggxp";
+const CLOUDINARY_UPLOAD_PRESET = "o1dtvc2c";
 
 const DEFAULT_CATEGORIES = ["Packing","ATK","Stock","Retur & Refund","SPX"];
 let categories = [];
@@ -332,23 +333,23 @@ async function deleteEntry(id){
   }catch(e){ console.error(e); status('Gagal menghapus.'); }
 }
 
-async function uploadToImgbb(dataUrl){
-  const base64 = dataUrl.split(',')[1];
+async function uploadToCloudinary(dataUrl){
   const formData = new FormData();
-  formData.append('image', base64);
-  const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+  formData.append('file', dataUrl);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
     method: 'POST',
     body: formData
   });
   const json = await res.json();
-  if(!json.success) throw new Error('Upload ke ImgBB gagal');
-  return json.data.url;
+  if(!json.secure_url) throw new Error('Upload ke Cloudinary gagal');
+  return json.secure_url;
 }
 
 async function uploadPhotos(dataUrls){
   const urls = [];
   for(const d of dataUrls){
-    const url = await uploadToImgbb(d);
+    const url = await uploadToCloudinary(d);
     urls.push(url);
   }
   return urls;
@@ -473,7 +474,7 @@ document.getElementById('send-btn').onclick = async ()=>{
       photoUrls = await uploadPhotos(pendingPhotos);
     }catch(err){
       console.error(err);
-      status('Gagal upload foto. Cek koneksi internet atau API key ImgBB, lalu coba lagi.');
+      status('Gagal upload foto. Cek koneksi internet atau pengaturan Cloudinary, lalu coba lagi.');
       return;
     }
   }
