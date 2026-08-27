@@ -27,6 +27,8 @@
   .cat-item.active{background:var(--panel2);}
   .cat-name{font-size:15px;}
   .cat-count{font-size:12px; color:var(--bg); background:var(--accent); border-radius:12px; padding:2px 8px; min-width:20px; text-align:center;}
+  .cat-del{font-size:12px; color:var(--sub); cursor:pointer; padding:2px 4px;}
+  .cat-del:hover{color:var(--danger);}
   #add-cat-btn{flex-shrink:0; width:40px; height:40px; margin:6px 4px 6px 10px; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:20px; cursor:pointer;}
   #cleanup-btn{flex-shrink:0; width:40px; height:40px; margin:6px 4px 6px 0; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:16px; cursor:pointer;}
   #delete-all-btn{flex-shrink:0; width:40px; height:40px; margin:6px 10px 6px 0; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:16px; cursor:pointer;}
@@ -271,16 +273,43 @@ function renderSidebar(){
     const div = document.createElement('div');
     div.className = 'cat-item' + (cat===activeCategory ? ' active':'');
     div.dataset.cat = cat;
-    div.innerHTML = `<span class="cat-name">${escapeHtml(cat)}</span><span class="cat-count">${count}</span>`;
+    div.innerHTML = `<span class="cat-name">${escapeHtml(cat)}</span><span class="cat-count">${count}</span><span class="cat-del" data-cat="${escapeHtml(cat)}" title="Hapus kategori ini">✕</span>`;
     list.appendChild(div);
   }
 }
 
 document.getElementById('cat-list').addEventListener('click', (e)=>{
+  const delBtn = e.target.closest('.cat-del');
+  if(delBtn){
+    deleteCategory(delBtn.dataset.cat);
+    return;
+  }
   const item = e.target.closest('.cat-item');
   if(!item) return;
   selectCategory(item.dataset.cat);
 });
+
+async function deleteCategory(cat){
+  if(!confirm(`Hapus kategori "${cat}"? Semua entri (foto & catatan) di kategori ini akan ikut terhapus permanen.`)) return;
+  if(!confirm(`Yakin? Tindakan ini tidak bisa dibatalkan.`)) return;
+  status(`Menghapus kategori "${cat}"...`);
+  const items = entriesCache[cat] || [];
+  for(const it of items){
+    try{ await deleteDoc(doc(db, 'entries', cat, 'items', it.id)); }catch(err){ console.error(err); }
+  }
+  categories = categories.filter(c => c !== cat);
+  await setDoc(doc(db,'meta','categories'), { list: categories });
+  delete entriesCache[cat];
+  listenedCategories.delete(cat);
+  if(activeCategory === cat){
+    activeCategory = null;
+    if(categories.length) selectCategory(categories[0]);
+    else { renderSidebar(); renderFeed(); }
+  } else {
+    renderSidebar();
+  }
+  status('');
+}
 
 function selectCategory(cat){
   activeCategory = cat;
