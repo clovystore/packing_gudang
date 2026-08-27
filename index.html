@@ -28,7 +28,8 @@
   .cat-name{font-size:15px;}
   .cat-count{font-size:12px; color:var(--bg); background:var(--accent); border-radius:12px; padding:2px 8px; min-width:20px; text-align:center;}
   #add-cat-btn{flex-shrink:0; width:40px; height:40px; margin:6px 4px 6px 10px; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:20px; cursor:pointer;}
-  #cleanup-btn{flex-shrink:0; width:40px; height:40px; margin:6px 10px 6px 0; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:16px; cursor:pointer;}
+  #cleanup-btn{flex-shrink:0; width:40px; height:40px; margin:6px 4px 6px 0; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:16px; cursor:pointer;}
+  #delete-all-btn{flex-shrink:0; width:40px; height:40px; margin:6px 10px 6px 0; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:16px; cursor:pointer;}
 
   #range-bar{display:flex; gap:6px; padding:8px 16px; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; overflow-x:auto; position:sticky; top:49px; z-index:19;}
   .range-btn{flex-shrink:0; padding:6px 14px; border-radius:16px; border:1px solid var(--line); background:var(--panel2); color:var(--sub); font-size:13px; cursor:pointer;}
@@ -92,6 +93,7 @@
     <div id="cat-list"></div>
     <button id="add-cat-btn" title="Tambah kategori">+</button>
     <button id="cleanup-btn" title="Hapus data lama">🧹</button>
+    <button id="delete-all-btn" title="Hapus semua foto di kategori ini">🗑️</button>
   </div>
   <div id="main">
     <div id="main-header" id="main-title">Pilih kategori</div>
@@ -428,6 +430,20 @@ document.getElementById('add-cat-btn').onclick = async ()=>{
   if(!name) return;
   await addCategory(name);
   selectCategory(name);
+};
+
+document.getElementById('delete-all-btn').onclick = async ()=>{
+  if(!activeCategory){ status('Pilih kategori dulu.'); return; }
+  const all = entriesCache[activeCategory] || [];
+  if(all.length===0){ alert(`Tidak ada entri di kategori "${activeCategory}".`); return; }
+  if(!confirm(`Hapus SEMUA ${all.length} entri di kategori "${activeCategory}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+  if(!confirm(`Yakin? Ini akan menghapus seluruh foto dan catatan di kategori "${activeCategory}" secara permanen.`)) return;
+  status(`Menghapus ${all.length} entri...`);
+  for(const e of all){
+    try{ await deleteDoc(doc(db, 'entries', activeCategory, 'items', e.id)); }catch(err){ console.error(err); }
+  }
+  status('');
+  alert(`Semua entri di kategori "${activeCategory}" sudah dihapus.`);
 };
 
 document.getElementById('cleanup-btn').onclick = async ()=>{
