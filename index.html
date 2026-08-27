@@ -37,7 +37,7 @@
   #date-picker{flex-shrink:0; background:var(--panel2); border:1px solid var(--line); border-radius:16px; padding:5px 10px; color:var(--text); font-size:13px; color-scheme:dark;}
 
   #main{flex:1; display:flex; flex-direction:column; background:#0a1014; min-height:0;}
-  #main-header{padding:14px 20px; background:var(--panel); border-bottom:1px solid var(--line); font-size:16px; font-weight:600;}
+  #main-title{padding:14px 20px; background:var(--panel); border-bottom:1px solid var(--line); font-size:16px; font-weight:600;}
   #feed{padding:14px; display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:10px; align-content:start;}
   .empty-state{grid-column:1/-1; margin:auto; color:var(--sub); text-align:center; font-size:14px; max-width:320px;}
 
@@ -87,7 +87,6 @@
 <div id="app">
   <div id="topbar">
     <div id="sidebar-header">
-      <span>Log Gudang</span>
       <span id="conn-dot" title="Status koneksi"></span>
     </div>
     <div id="cat-list"></div>
@@ -96,7 +95,7 @@
     <button id="delete-all-btn" title="Hapus semua foto di kategori ini">🗑️</button>
   </div>
   <div id="main">
-    <div id="main-header" id="main-title">Pilih kategori</div>
+    <div id="main-title">Pilih kategori</div>
     <div id="range-bar">
       <button class="range-btn active" data-range="day">Hari ini</button>
       <button class="range-btn" data-range="week">Minggu ini</button>
