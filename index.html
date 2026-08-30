@@ -31,8 +31,22 @@
   .cat-del{font-size:12px; color:var(--sub); cursor:pointer; padding:2px 4px;}
   .cat-del:hover{color:var(--danger);}
   #action-btns{display:flex; align-items:center; gap:6px; flex-shrink:0;}
-  #add-cat-btn, #cleanup-btn, #delete-all-btn{flex-shrink:0; width:36px; height:36px; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:16px; cursor:pointer;}
+  #add-cat-btn, #cleanup-btn, #delete-all-btn, #select-mode-btn{flex-shrink:0; width:36px; height:36px; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:16px; cursor:pointer;}
   #add-cat-btn{font-size:20px;}
+  #select-mode-btn.active{background:var(--accent); border-color:var(--accent);}
+
+  #select-bar{display:flex; align-items:center; gap:8px; padding:8px 16px; background:var(--panel2); border-bottom:1px solid var(--line); flex-shrink:0; position:sticky; top:98px; z-index:18;}
+  #select-count{font-size:13px; color:var(--text); margin-right:auto;}
+  #select-bar button{padding:6px 14px; border-radius:16px; border:1px solid var(--line); background:var(--panel); color:var(--text); font-size:13px; cursor:pointer;}
+  #select-move-btn{background:var(--accent); color:#052014; border-color:var(--accent); font-weight:600;}
+  #select-delete-btn{color:var(--danger); border-color:var(--danger);}
+
+  .entry{position:relative;}
+  .entry .select-check{display:none; position:absolute; top:6px; right:6px; width:22px; height:22px; border-radius:50%; border:2px solid #fff; background:rgba(0,0,0,0.4); z-index:2; cursor:pointer;}
+  .entry.select-mode .select-check{display:block;}
+  .entry.selected .select-check{background:var(--accent); border-color:var(--accent);}
+  .entry.selected .select-check::after{content:'✓'; color:#052014; font-size:14px; display:flex; align-items:center; justify-content:center; height:100%;}
+  .entry.select-mode{cursor:pointer;}
 
   #range-bar{display:flex; gap:6px; padding:8px 16px; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; overflow-x:auto; position:sticky; top:98px; z-index:18;}
   .range-btn{flex-shrink:0; padding:6px 14px; border-radius:16px; border:1px solid var(--line); background:var(--panel2); color:var(--sub); font-size:13px; cursor:pointer;}
@@ -54,6 +68,8 @@
   .entry .delbtn{font-size:10px; color:var(--danger); cursor:pointer; flex-shrink:0;}
   .entry .qcbtn{font-size:13px; cursor:pointer; opacity:0.3; filter:grayscale(1);}
   .entry .qcbtn.checked{opacity:1; filter:none;}
+  .entry .movebtn{font-size:13px; cursor:pointer; color:var(--sub);}
+  .entry .movebtn:hover{color:var(--accent);}
   .entry.qc-done{outline:2px solid var(--accent);}
 
   #composer{background:var(--panel); border-top:1px solid var(--line); padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px)); display:flex; flex-direction:column; gap:8px; flex-shrink:0; position:sticky; bottom:0; z-index:20;}
@@ -95,6 +111,7 @@
     <span id="conn-dot" title="Status koneksi"></span>
     <div id="main-title">Pilih kategori</div>
     <div id="action-btns">
+      <button id="select-mode-btn" title="Pilih beberapa foto">☑️</button>
       <button id="add-cat-btn" title="Tambah kategori">+</button>
       <button id="cleanup-btn" title="Hapus data lama">🧹</button>
       <button id="delete-all-btn" title="Hapus semua foto di kategori ini">🗑️</button>
@@ -106,6 +123,12 @@
       <button class="range-btn" data-range="week">Minggu ini</button>
       <button class="range-btn" data-range="month">Bulan ini</button>
       <input type="date" id="date-picker" title="Pilih tanggal tertentu"/>
+    </div>
+    <div id="select-bar" style="display:none;">
+      <span id="select-count">0 dipilih</span>
+      <button id="select-move-btn">Pindahkan</button>
+      <button id="select-delete-btn">Hapus</button>
+      <button id="select-cancel-btn">Batal</button>
     </div>
     <div id="feed"><div class="empty-state">Menghubungkan ke database...</div></div>
     <div id="composer">
@@ -175,6 +198,8 @@ let activeRange = 'day';
 let customDate = null; // 'YYYY-MM-DD' string or null
 let pendingPhotos = [];
 let entriesCache = {}; // category -> array of entries (sorted)
+let selectMode = false;
+let selectedIds = new Set();
 
 function isInRange(ts, range){
   if(customDate){
@@ -336,16 +361,18 @@ function renderFeed(){
   }
   for(const e of entries){
     const div = document.createElement('div');
-    div.className = 'entry' + (e.checked ? ' qc-done' : '');
+    div.className = 'entry' + (e.checked ? ' qc-done' : '') + (selectMode ? ' select-mode' : '') + (selectedIds.has(e.id) ? ' selected' : '');
+    div.dataset.id = e.id;
     let photosHtml = '';
     if(e.photos && e.photos.length){
       photosHtml = `<div class="photos">${e.photos.map(p=>`<img src="${p}" onclick="openLightbox('${p}')"/>`).join('')}</div>`;
     }
     div.innerHTML = `
+      <div class="select-check"></div>
       <div class="who">${escapeHtml(e.name||'Tanpa nama')}</div>
       ${photosHtml}
       ${e.note ? `<div class="note">${escapeHtml(e.note)}</div>` : ''}
-      <div class="meta"><span>${new Date(e.timestamp).toLocaleString('id-ID',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span><span class="btns"><span class="qcbtn ${e.checked?'checked':''}" data-id="${e.id}" title="Tandai sudah dicek QC">✅</span><span class="delbtn" data-id="${e.id}">Hapus</span></span></div>
+      <div class="meta"><span>${new Date(e.timestamp).toLocaleString('id-ID',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span><span class="btns"><span class="movebtn" data-id="${e.id}" title="Pindahkan ke kategori lain">↪</span><span class="qcbtn ${e.checked?'checked':''}" data-id="${e.id}" title="Tandai sudah dicek QC">✅</span><span class="delbtn" data-id="${e.id}">Hapus</span></span></div>
     `;
     feed.appendChild(div);
   }
@@ -355,7 +382,36 @@ function renderFeed(){
   feed.querySelectorAll('.qcbtn').forEach(btn=>{
     btn.onclick = ()=> toggleQC(btn.dataset.id, !btn.classList.contains('checked'));
   });
+  feed.querySelectorAll('.movebtn').forEach(btn=>{
+    btn.onclick = ()=> moveEntry(btn.dataset.id);
+  });
   feed.scrollTop = feed.scrollHeight;
+}
+
+async function moveEntry(id){
+  const entry = (entriesCache[activeCategory]||[]).find(e=>e.id===id);
+  if(!entry) return;
+  const others = categories.filter(c=>c!==activeCategory);
+  if(others.length===0){ alert('Tidak ada kategori lain untuk memindahkan.'); return; }
+  const listStr = others.map((c,i)=>`${i+1}. ${c}`).join('\n');
+  const input = window.prompt(`Pindahkan entri ini ke kategori mana?\n${listStr}\n\nKetik angka atau nama kategorinya:`);
+  if(!input) return;
+  const trimmed = input.trim();
+  let target = others.find(c => c.toLowerCase() === trimmed.toLowerCase());
+  if(!target){
+    const idx = parseInt(trimmed) - 1;
+    if(!isNaN(idx) && others[idx]) target = others[idx];
+  }
+  if(!target){ alert('Kategori tidak ditemukan. Coba lagi dengan mengetik nama atau angka yang benar.'); return; }
+  status(`Memindahkan ke "${target}"...`);
+  try{
+    await setDoc(doc(db, 'entries', target, 'items', entry.id), entry);
+    await deleteDoc(doc(db, 'entries', activeCategory, 'items', entry.id));
+    status('');
+  }catch(err){
+    console.error(err);
+    status('Gagal memindahkan entri.');
+  }
 }
 
 async function toggleQC(id, checked){
@@ -561,6 +617,80 @@ document.getElementById('date-picker').addEventListener('change', (e)=>{
   document.querySelectorAll('.range-btn').forEach(b=> b.classList.remove('active'));
   renderFeed();
 });
+
+// ---------- Multi-select mode ----------
+document.getElementById('feed').addEventListener('click', (e)=>{
+  if(!selectMode) return;
+  const entryEl = e.target.closest('.entry');
+  if(!entryEl) return;
+  e.stopPropagation();
+  e.preventDefault();
+  toggleSelect(entryEl.dataset.id);
+}, true);
+
+function toggleSelect(id){
+  if(selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
+  updateSelectUI();
+}
+
+function updateSelectUI(){
+  document.querySelectorAll('.entry').forEach(el=>{
+    el.classList.toggle('selected', selectedIds.has(el.dataset.id));
+  });
+  document.getElementById('select-count').textContent = `${selectedIds.size} dipilih`;
+}
+
+function setSelectMode(on){
+  selectMode = on;
+  if(!on) selectedIds.clear();
+  document.getElementById('select-mode-btn').classList.toggle('active', on);
+  document.getElementById('range-bar').style.display = on ? 'none' : 'flex';
+  document.getElementById('select-bar').style.display = on ? 'flex' : 'none';
+  renderFeed();
+  updateSelectUI();
+}
+
+document.getElementById('select-mode-btn').onclick = ()=> setSelectMode(!selectMode);
+document.getElementById('select-cancel-btn').onclick = ()=> setSelectMode(false);
+
+document.getElementById('select-delete-btn').onclick = async ()=>{
+  if(selectedIds.size===0){ alert('Belum ada foto yang dipilih.'); return; }
+  if(!confirm(`Hapus ${selectedIds.size} entri terpilih? Tindakan ini tidak bisa dibatalkan.`)) return;
+  status(`Menghapus ${selectedIds.size} entri...`);
+  for(const id of selectedIds){
+    try{ await deleteDoc(doc(db, 'entries', activeCategory, 'items', id)); }catch(err){ console.error(err); }
+  }
+  setSelectMode(false);
+  status('');
+};
+
+document.getElementById('select-move-btn').onclick = async ()=>{
+  if(selectedIds.size===0){ alert('Belum ada foto yang dipilih.'); return; }
+  const others = categories.filter(c=>c!==activeCategory);
+  if(others.length===0){ alert('Tidak ada kategori lain untuk memindahkan.'); return; }
+  const listStr = others.map((c,i)=>`${i+1}. ${c}`).join('\n');
+  const input = window.prompt(`Pindahkan ${selectedIds.size} entri ke kategori mana?\n${listStr}\n\nKetik angka atau nama kategorinya:`);
+  if(!input) return;
+  const trimmed = input.trim();
+  let target = others.find(c => c.toLowerCase() === trimmed.toLowerCase());
+  if(!target){
+    const idx = parseInt(trimmed) - 1;
+    if(!isNaN(idx) && others[idx]) target = others[idx];
+  }
+  if(!target){ alert('Kategori tidak ditemukan.'); return; }
+  status(`Memindahkan ${selectedIds.size} entri ke "${target}"...`);
+  const all = entriesCache[activeCategory] || [];
+  for(const id of selectedIds){
+    const entry = all.find(e=>e.id===id);
+    if(!entry) continue;
+    try{
+      await setDoc(doc(db, 'entries', target, 'items', entry.id), entry);
+      await deleteDoc(doc(db, 'entries', activeCategory, 'items', entry.id));
+    }catch(err){ console.error(err); }
+  }
+  setSelectMode(false);
+  status('');
+};
 
 // ---------- Init ----------
 const savedName = localStorage.getItem('log-gudang-username');
