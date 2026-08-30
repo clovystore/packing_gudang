@@ -66,8 +66,9 @@
   .entry .meta{font-size:10px; color:var(--sub); margin-top:3px; display:flex; justify-content:space-between; gap:6px; align-items:center;}
   .entry .btns{display:flex; gap:8px; align-items:center; flex-shrink:0;}
   .entry .delbtn{font-size:10px; color:var(--danger); cursor:pointer; flex-shrink:0;}
-  .entry .qcbtn{font-size:13px; cursor:pointer; opacity:0.3; filter:grayscale(1);}
-  .entry .qcbtn.checked{opacity:1; filter:none;}
+  .entry .qcbtn{display:flex; align-items:center; justify-content:center; position:absolute; top:6px; right:6px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,0.45); font-size:13px; cursor:pointer; opacity:0.4; filter:grayscale(1); z-index:2;}
+  .entry .qcbtn.checked{opacity:1; filter:none; background:rgba(0,0,0,0.6);}
+  .entry.select-mode .qcbtn{display:none;}
   .entry .movebtn{font-size:13px; cursor:pointer; color:var(--sub);}
   .entry .movebtn:hover{color:var(--accent);}
   .entry.qc-done{outline:2px solid var(--accent);}
@@ -369,10 +370,11 @@ function renderFeed(){
     }
     div.innerHTML = `
       <div class="select-check"></div>
+      <div class="qcbtn ${e.checked?'checked':''}" data-id="${e.id}" title="Tandai sudah dicek QC">✅</div>
       <div class="who">${escapeHtml(e.name||'Tanpa nama')}</div>
       ${photosHtml}
       ${e.note ? `<div class="note">${escapeHtml(e.note)}</div>` : ''}
-      <div class="meta"><span>${new Date(e.timestamp).toLocaleString('id-ID',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span><span class="btns"><span class="movebtn" data-id="${e.id}" title="Pindahkan ke kategori lain">↪</span><span class="qcbtn ${e.checked?'checked':''}" data-id="${e.id}" title="Tandai sudah dicek QC">✅</span><span class="delbtn" data-id="${e.id}">Hapus</span></span></div>
+      <div class="meta"><span>${new Date(e.timestamp).toLocaleString('id-ID',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span><span class="btns"><span class="movebtn" data-id="${e.id}" title="Pindahkan ke kategori lain">↪</span><span class="delbtn" data-id="${e.id}">Hapus</span></span></div>
     `;
     feed.appendChild(div);
   }
