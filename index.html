@@ -18,8 +18,10 @@
   #app{display:flex; flex-direction:column; min-height:100vh; min-height:100dvh;}
 
   #topbar{display:flex; align-items:center; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; position:sticky; top:0; z-index:20; height:49px;}
-  #conn-dot{width:8px; height:8px; border-radius:50%; background:var(--danger); display:inline-block; flex-shrink:0; margin:0 10px 0 14px;}
+  #title-bar{display:flex; align-items:center; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; position:sticky; top:49px; z-index:19; padding:0 16px; height:49px;}
+  #conn-dot{width:8px; height:8px; border-radius:50%; background:var(--danger); display:inline-block; flex-shrink:0; margin-right:10px;}
   #conn-dot.ok{background:var(--accent);}
+  #main-title{font-size:16px; font-weight:600; flex:1;}
   #cat-list{flex:1; display:flex; overflow-x:auto; overflow-y:hidden;}
   .cat-item{padding:12px 16px; cursor:pointer; display:flex; justify-content:flex-start; align-items:center; gap:8px; flex-shrink:0; white-space:nowrap; border-right:1px solid var(--line);}
   .cat-item:hover{background:var(--panel2);}
@@ -28,11 +30,11 @@
   .cat-count{font-size:12px; color:var(--bg); background:var(--accent); border-radius:12px; padding:2px 8px; min-width:20px; text-align:center;}
   .cat-del{font-size:12px; color:var(--sub); cursor:pointer; padding:2px 4px;}
   .cat-del:hover{color:var(--danger);}
-  #action-btns{display:flex; align-items:center; gap:6px; flex-shrink:0; margin-left:auto; padding:0 10px 0 6px;}
+  #action-btns{display:flex; align-items:center; gap:6px; flex-shrink:0;}
   #add-cat-btn, #cleanup-btn, #delete-all-btn{flex-shrink:0; width:36px; height:36px; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:16px; cursor:pointer;}
   #add-cat-btn{font-size:20px;}
 
-  #range-bar{display:flex; gap:6px; padding:8px 16px; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; overflow-x:auto; position:sticky; top:49px; z-index:19;}
+  #range-bar{display:flex; gap:6px; padding:8px 16px; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; overflow-x:auto; position:sticky; top:98px; z-index:18;}
   .range-btn{flex-shrink:0; padding:6px 14px; border-radius:16px; border:1px solid var(--line); background:var(--panel2); color:var(--sub); font-size:13px; cursor:pointer;}
   .range-btn.active{background:var(--accent); color:#052014; border-color:var(--accent); font-weight:600;}
   #date-picker{flex-shrink:0; background:var(--panel2); border:1px solid var(--line); border-radius:16px; padding:5px 10px; color:var(--text); font-size:13px; color-scheme:dark;}
@@ -87,8 +89,11 @@
 <body>
 <div id="app">
   <div id="topbar">
-    <span id="conn-dot" title="Status koneksi"></span>
     <div id="cat-list"></div>
+  </div>
+  <div id="title-bar">
+    <span id="conn-dot" title="Status koneksi"></span>
+    <div id="main-title">Pilih kategori</div>
     <div id="action-btns">
       <button id="add-cat-btn" title="Tambah kategori">+</button>
       <button id="cleanup-btn" title="Hapus data lama">🧹</button>
@@ -96,7 +101,6 @@
     </div>
   </div>
   <div id="main">
-    <div id="main-title">Pilih kategori</div>
     <div id="range-bar">
       <button class="range-btn active" data-range="day">Hari ini</button>
       <button class="range-btn" data-range="week">Minggu ini</button>
