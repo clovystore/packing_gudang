@@ -18,10 +18,9 @@
   #app{display:flex; flex-direction:column; min-height:100vh; min-height:100dvh;}
 
   #topbar{display:flex; align-items:center; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; position:sticky; top:0; z-index:20; height:49px;}
-  #sidebar-header{padding:12px 16px; font-size:16px; font-weight:600; flex-shrink:0; display:flex; align-items:center; gap:8px;}
-  #conn-dot{width:8px; height:8px; border-radius:50%; background:var(--danger); display:inline-block;}
+  #conn-dot{width:8px; height:8px; border-radius:50%; background:var(--danger); display:inline-block; flex-shrink:0; margin:0 10px 0 14px;}
   #conn-dot.ok{background:var(--accent);}
-  #cat-list{flex:1; display:flex; overflow-x:auto; overflow-y:hidden; border-left:1px solid var(--line);}
+  #cat-list{flex:1; display:flex; overflow-x:auto; overflow-y:hidden;}
   .cat-item{padding:12px 16px; cursor:pointer; display:flex; justify-content:flex-start; align-items:center; gap:8px; flex-shrink:0; white-space:nowrap; border-right:1px solid var(--line);}
   .cat-item:hover{background:var(--panel2);}
   .cat-item.active{background:var(--panel2);}
@@ -29,9 +28,9 @@
   .cat-count{font-size:12px; color:var(--bg); background:var(--accent); border-radius:12px; padding:2px 8px; min-width:20px; text-align:center;}
   .cat-del{font-size:12px; color:var(--sub); cursor:pointer; padding:2px 4px;}
   .cat-del:hover{color:var(--danger);}
-  #add-cat-btn{flex-shrink:0; width:40px; height:40px; margin:6px 4px 6px 10px; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:20px; cursor:pointer;}
-  #cleanup-btn{flex-shrink:0; width:40px; height:40px; margin:6px 4px 6px 0; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:16px; cursor:pointer;}
-  #delete-all-btn{flex-shrink:0; width:40px; height:40px; margin:6px 10px 6px 0; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:16px; cursor:pointer;}
+  #action-btns{display:flex; align-items:center; gap:6px; flex-shrink:0; margin-left:auto; padding:0 10px 0 6px;}
+  #add-cat-btn, #cleanup-btn, #delete-all-btn{flex-shrink:0; width:36px; height:36px; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:16px; cursor:pointer;}
+  #add-cat-btn{font-size:20px;}
 
   #range-bar{display:flex; gap:6px; padding:8px 16px; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; overflow-x:auto; position:sticky; top:49px; z-index:19;}
   .range-btn{flex-shrink:0; padding:6px 14px; border-radius:16px; border:1px solid var(--line); background:var(--panel2); color:var(--sub); font-size:13px; cursor:pointer;}
@@ -88,13 +87,13 @@
 <body>
 <div id="app">
   <div id="topbar">
-    <div id="sidebar-header">
-      <span id="conn-dot" title="Status koneksi"></span>
-    </div>
+    <span id="conn-dot" title="Status koneksi"></span>
     <div id="cat-list"></div>
-    <button id="add-cat-btn" title="Tambah kategori">+</button>
-    <button id="cleanup-btn" title="Hapus data lama">🧹</button>
-    <button id="delete-all-btn" title="Hapus semua foto di kategori ini">🗑️</button>
+    <div id="action-btns">
+      <button id="add-cat-btn" title="Tambah kategori">+</button>
+      <button id="cleanup-btn" title="Hapus data lama">🧹</button>
+      <button id="delete-all-btn" title="Hapus semua foto di kategori ini">🗑️</button>
+    </div>
   </div>
   <div id="main">
     <div id="main-title">Pilih kategori</div>
@@ -102,7 +101,6 @@
       <button class="range-btn active" data-range="day">Hari ini</button>
       <button class="range-btn" data-range="week">Minggu ini</button>
       <button class="range-btn" data-range="month">Bulan ini</button>
-      <button class="range-btn" data-range="all">Semua</button>
       <input type="date" id="date-picker" title="Pilih tanggal tertentu"/>
     </div>
     <div id="feed"><div class="empty-state">Menghubungkan ke database...</div></div>
