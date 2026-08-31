@@ -31,7 +31,7 @@
   .cat-del{font-size:12px; color:var(--sub); cursor:pointer; padding:2px 4px;}
   .cat-del:hover{color:var(--danger);}
   #action-btns{display:flex; align-items:center; gap:6px; flex-shrink:0;}
-  #add-cat-btn, #cleanup-btn, #delete-all-btn, #select-mode-btn, #ocr-backfill-btn{flex-shrink:0; width:36px; height:36px; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:16px; cursor:pointer;}
+  #add-cat-btn, #cleanup-btn, #delete-all-btn, #select-mode-btn{flex-shrink:0; width:36px; height:36px; border-radius:50%; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:16px; cursor:pointer;}
   #add-cat-btn{font-size:20px;}
   #select-mode-btn.active{background:var(--accent); border-color:var(--accent);}
 
@@ -119,7 +119,6 @@
     <div id="main-title">Pilih kategori</div>
     <div id="action-btns">
       <button id="select-mode-btn" title="Pilih beberapa foto">☑️</button>
-      <button id="ocr-backfill-btn" title="Proses ulang foto lama supaya bisa dicari">🔍</button>
       <button id="add-cat-btn" title="Tambah kategori">+</button>
       <button id="cleanup-btn" title="Hapus data lama">🧹</button>
       <button id="delete-all-btn" title="Hapus semua foto di kategori ini">🗑️</button>
@@ -139,7 +138,7 @@
       <button id="select-cancel-btn">Batal</button>
     </div>
     <div id="search-bar">
-      <input type="text" id="search-input" placeholder="Cari nomor pesanan / catatan..."/>
+      <input type="text" id="search-input" placeholder="Cari dari nama atau catatan..."/>
     </div>
     <div id="feed"><div class="empty-state">Menghubungkan ke database...</div></div>
     <div id="composer">
@@ -174,7 +173,6 @@
   #lightbox img{display:block; max-width:100%; max-height:calc(80vh - 16px); border-radius:6px; margin:0 auto;}
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -375,7 +373,6 @@ function renderFeed(){
   if(searchQuery){
     entries = allEntries.filter(e =>
       (e.note||'').toLowerCase().includes(searchQuery) ||
-      (e.ocrText||'').toLowerCase().includes(searchQuery) ||
       (e.name||'').toLowerCase().includes(searchQuery)
     );
   } else {
@@ -514,16 +511,6 @@ async function uploadPhotos(dataUrls){
   return urls;
 }
 
-async function extractTextFromImage(dataUrl){
-  try{
-    const result = await window.Tesseract.recognize(dataUrl, 'eng');
-    return (result.data && result.data.text) ? result.data.text : '';
-  }catch(err){
-    console.error('OCR error', err);
-    return '';
-  }
-}
-
 // ---------- Photo handling ----------
 function resizeImage(file, maxDim=1900, quality=0.85){
   return new Promise((resolve,reject)=>{
@@ -614,33 +601,6 @@ document.getElementById('file-input-camera').onchange = async (e)=>{
   e.target.value = '';
 };
 
-document.getElementById('ocr-backfill-btn').onclick = async ()=>{
-  if(!activeCategory){ status('Pilih kategori dulu.'); return; }
-  const all = entriesCache[activeCategory] || [];
-  const todo = all.filter(e => !e.ocrText && e.photos && e.photos.length);
-  if(todo.length === 0){ alert(`Semua foto di kategori "${activeCategory}" sudah diproses untuk pencarian.`); return; }
-  if(!confirm(`Proses ${todo.length} foto lama di kategori "${activeCategory}" supaya bisa dicari?\n\nProses ini bisa memakan waktu beberapa menit tergantung jumlah foto. Jangan tutup halaman ini selama proses berjalan.`)) return;
-
-  let done = 0;
-  for(const entry of todo){
-    status(`Memproses foto lama... (${done+1}/${todo.length})`);
-    try{
-      const texts = [];
-      for(const url of entry.photos){
-        const t = await extractTextFromImage(url);
-        if(t && t.trim()) texts.push(t.trim());
-      }
-      const ocrText = texts.join(' ').replace(/\s+/g, ' ').trim();
-      await updateDoc(doc(db, 'entries', activeCategory, 'items', entry.id), { ocrText });
-    }catch(err){
-      console.error(err);
-    }
-    done++;
-  }
-  status('');
-  alert(`Selesai memproses ${done} foto lama di kategori "${activeCategory}".`);
-};
-
 document.getElementById('add-cat-btn').onclick = async ()=>{
   const name = (window.prompt('Nama kategori baru:') || '').trim();
   if(!name) return;
@@ -700,16 +660,7 @@ document.getElementById('send-btn').onclick = async ()=>{
 
   const id = uid();
   let photoUrls = [];
-  let ocrText = '';
   if(pendingPhotos.length){
-    status('Membaca teks foto...');
-    const texts = [];
-    for(const p of pendingPhotos){
-      const t = await extractTextFromImage(p);
-      if(t && t.trim()) texts.push(t.trim());
-    }
-    ocrText = texts.join(' ').replace(/\s+/g, ' ').trim();
-
     status('Mengupload foto...');
     try{
       photoUrls = await uploadPhotos(pendingPhotos);
@@ -719,7 +670,7 @@ document.getElementById('send-btn').onclick = async ()=>{
       return;
     }
   }
-  const entry = { id, name, note, photos: photoUrls, ocrText, timestamp: Date.now() };
+  const entry = { id, name, note, photos: photoUrls, timestamp: Date.now() };
   status('Mengirim...');
   try{
     await setDoc(doc(db, 'entries', activeCategory, 'items', id), entry);
