@@ -304,7 +304,7 @@ function renderSidebar(){
   list.innerHTML = '';
   for(const cat of categories){
     ensureListening(cat);
-    const count = (entriesCache[cat]||[]).filter(e => isToday(e.timestamp)).length;
+    const count = (entriesCache[cat]||[]).filter(e => isInRange(e.timestamp, activeRange)).length;
     const div = document.createElement('div');
     div.className = 'cat-item' + (cat===activeCategory ? ' active':'');
     div.dataset.cat = cat;
@@ -677,14 +677,16 @@ document.querySelectorAll('.range-btn').forEach(btn=>{
     document.getElementById('date-picker').value = '';
     document.querySelectorAll('.range-btn').forEach(b=> b.classList.toggle('active', b===btn));
     renderFeed();
+    renderSidebar();
   };
 });
 
 document.getElementById('date-picker').addEventListener('change', (e)=>{
-  if(!e.target.value){ customDate = null; renderFeed(); return; }
+  if(!e.target.value){ customDate = null; renderFeed(); renderSidebar(); return; }
   customDate = e.target.value;
   document.querySelectorAll('.range-btn').forEach(b=> b.classList.remove('active'));
   renderFeed();
+  renderSidebar();
 });
 
 // ---------- Multi-select mode ----------
