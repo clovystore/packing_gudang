@@ -41,6 +41,9 @@
   #select-move-btn{background:var(--accent); color:#052014; border-color:var(--accent); font-weight:600;}
   #select-delete-btn{color:var(--danger); border-color:var(--danger);}
 
+  #search-bar{padding:8px 16px; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0;}
+  #search-input{width:100%; background:var(--panel2); border:1px solid var(--line); border-radius:16px; padding:8px 14px; color:var(--text); font-size:13px;}
+
   .entry{position:relative;}
   .entry .select-check{display:none; position:absolute; top:6px; right:6px; width:22px; height:22px; border-radius:50%; border:2px solid #fff; background:rgba(0,0,0,0.4); z-index:2; cursor:pointer;}
   .entry.select-mode .select-check{display:block;}
@@ -134,6 +137,9 @@
       <button id="select-delete-btn">Hapus</button>
       <button id="select-cancel-btn">Batal</button>
     </div>
+    <div id="search-bar">
+      <input type="text" id="search-input" placeholder="Cari nomor pesanan / catatan..."/>
+    </div>
     <div id="feed"><div class="empty-state">Menghubungkan ke database...</div></div>
     <div id="composer">
       <div id="name-row">
@@ -167,6 +173,7 @@
   #lightbox img{display:block; max-width:100%; max-height:calc(80vh - 16px); border-radius:6px; margin:0 auto;}
 </style>
 
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -204,6 +211,7 @@ let pendingPhotos = [];
 let entriesCache = {}; // category -> array of entries (sorted)
 let selectMode = false;
 let selectedIds = new Set();
+let searchQuery = '';
 
 function isToday(ts){
   return new Date(ts).toDateString() === new Date().toDateString();
@@ -362,9 +370,18 @@ function renderFeed(){
     return;
   }
   const allEntries = entriesCache[activeCategory] || [];
-  const entries = allEntries.filter(e => isInRange(e.timestamp, activeRange));
+  let entries;
+  if(searchQuery){
+    entries = allEntries.filter(e =>
+      (e.note||'').toLowerCase().includes(searchQuery) ||
+      (e.ocrText||'').toLowerCase().includes(searchQuery) ||
+      (e.name||'').toLowerCase().includes(searchQuery)
+    );
+  } else {
+    entries = allEntries.filter(e => isInRange(e.timestamp, activeRange));
+  }
   if(entries.length===0){
-    feed.innerHTML = `<div class="empty-state">${allEntries.length===0 ? 'Belum ada entri. Tambahkan foto/catatan pertama di bawah.' : 'Tidak ada entri pada rentang waktu ini.'}</div>`;
+    feed.innerHTML = `<div class="empty-state">${searchQuery ? 'Tidak ditemukan entri yang cocok dengan pencarian.' : (allEntries.length===0 ? 'Belum ada entri. Tambahkan foto/catatan pertama di bawah.' : 'Tidak ada entri pada rentang waktu ini.')}</div>`;
     return;
   }
   for(const e of entries){
@@ -494,6 +511,16 @@ async function uploadPhotos(dataUrls){
     urls.push(url);
   }
   return urls;
+}
+
+async function extractTextFromImage(dataUrl){
+  try{
+    const result = await window.Tesseract.recognize(dataUrl, 'eng');
+    return (result.data && result.data.text) ? result.data.text : '';
+  }catch(err){
+    console.error('OCR error', err);
+    return '';
+  }
 }
 
 // ---------- Photo handling ----------
@@ -645,7 +672,16 @@ document.getElementById('send-btn').onclick = async ()=>{
 
   const id = uid();
   let photoUrls = [];
+  let ocrText = '';
   if(pendingPhotos.length){
+    status('Membaca teks foto...');
+    const texts = [];
+    for(const p of pendingPhotos){
+      const t = await extractTextFromImage(p);
+      if(t && t.trim()) texts.push(t.trim());
+    }
+    ocrText = texts.join(' ').replace(/\s+/g, ' ').trim();
+
     status('Mengupload foto...');
     try{
       photoUrls = await uploadPhotos(pendingPhotos);
@@ -655,7 +691,7 @@ document.getElementById('send-btn').onclick = async ()=>{
       return;
     }
   }
-  const entry = { id, name, note, photos: photoUrls, timestamp: Date.now() };
+  const entry = { id, name, note, photos: photoUrls, ocrText, timestamp: Date.now() };
   status('Mengirim...');
   try{
     await setDoc(doc(db, 'entries', activeCategory, 'items', id), entry);
@@ -687,6 +723,11 @@ document.getElementById('date-picker').addEventListener('change', (e)=>{
   document.querySelectorAll('.range-btn').forEach(b=> b.classList.remove('active'));
   renderFeed();
   renderSidebar();
+});
+
+document.getElementById('search-input').addEventListener('input', (e)=>{
+  searchQuery = e.target.value.trim().toLowerCase();
+  renderFeed();
 });
 
 // ---------- Multi-select mode ----------
